@@ -1,0 +1,118 @@
+---
+title: "Simulation study: state-space model and multivariate normal distribution"
+author: "Xinrui Shi"
+date: "2023-05-22"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(dplyr)
+library(ggplot2)
+library(MASS)
+```
+
+```{r}
+# simulate time series from state-space model
+sim_Xt <- function(X0, n, gamma){
+  
+  # parameters
+  phi <- exp(-1/gamma)
+  sigma <- 1- exp(-2/gamma)
+  
+  # simulate time series of length n
+  X <- c(X0)
+  for(i in 1:n){
+    Xi <- X[i]*phi + rnorm(1, 0, sigma)
+    X <- c(X, Xi)
+  }
+  
+  return(X)
+}
+```
+
+
+```{r}
+# simulate several time series
+X.mat <- data.frame(iter = NULL, value = NULL, idx = NULL)
+
+repeat.time <- 3
+gamma <- 1
+n <- 1000
+
+for(j in 1:repeat.time){
+  Xj <- sim_Xt(rnorm(1), n, gamma)
+  X.mat.j <- data.frame(iter = 1:(n+1), value = Xj, idx = as.factor(j))
+  X.mat <- rbind(X.mat, X.mat.j)
+}
+
+```
+
+```{r}
+
+# compute the Sigma which can generate equivalent distributed time series
+Sigma <- matrix(0, n, n)
+for(i in 1:n){
+  for(j in 1:n){
+    Sigma[i,j] <- exp(-abs(i-j)/gamma)
+  }
+}
+
+# simulate by multivariate normal distributions
+X.multi <- sample_distribution <- mvrnorm(n = 100,
+                               mu = rep(0,n), 
+                               Sigma = Sigma)
+
+# compute maximal and minimal values of each dimension
+X.multi.ribbon <-  data.frame(iter = 1:n, 
+                              max = sapply(1:n, function(i) max(X.multi[,i])), 
+                              min = sapply(1:n, function(i) min(X.multi[,i])))
+
+# simulate a time series from state-space model
+X.sim <- data.frame(iter = 1:n, 
+                    value = sim_Xt(rnorm(1), n, gamma)[-1], 
+                    type = "simulation")
+
+# plot for comparison
+merge(X.sim, X.multi.ribbon)%>% 
+  ggplot(aes(x=iter, y=value)) + 
+  geom_ribbon(aes(ymax=max, ymin=min),alpha=0.2) +
+  geom_line()
+  
+```
+
+
+```{r}
+
+# compare histograms of last dimension simulated by two models
+last.dimension <- data.frame(value = NULL, type= NULL)
+
+
+for(num in 1:500){
+  X.sim <- sim_Xt(rnorm(1), n, gamma)[-1]
+  last.dimension <- rbind(last.dimension, 
+                          data.frame(value = X.sim[1000], 
+                                     type= "state-space model"))
+}
+
+
+X.multi.lastdim <-  mvrnorm(n = 500,
+                            mu = rep(0,n), 
+                            Sigma = Sigma)[,1000]
+
+last.dimension <- rbind(last.dimension, 
+                        data.frame(value =X.multi.lastdim, 
+                                   type= "multivariate normal"))
+
+ggplot(last.dimension, aes(x=value, fill=type)) +
+  geom_histogram(position = "identity", 
+                 alpha = 0.5, bins = 50)
+```
+
+
+
+
+
+
+
