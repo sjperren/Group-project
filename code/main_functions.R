@@ -15,37 +15,8 @@ sim_Xt <- function(X0, n, gamma){
   return(X)
 }
 
-# prediction step
-pred_step <- function(m.tt, sigma.tt, phi, sigma.v){
-  
-  # updated m_{t+1|t}
-  m.t1t <- phi*m.tt
-  
-  # updated sigma_{t+1|t}
-  sigma.t1t <- sqrt(sigma.v^2 + phi^2*sigma.tt^2)
-  
-  return(list(m=m.t1t, sigma=sigma.t1t))
-}
-
-
-# updating step
-update_step <- function(m.t1t, sigma.t1t, phi, sigma.w, new.y){
-  
-  denominator <- sigma.w^2 + sigma.t1t^2
-  
-  # updated m_{t+1|t+1}
-  m.t1t1 <- (sigma.w^2*m.t1t + sigma.t1t*new.y)/denominator
-  
-  # updated sigma_{t+1|t+1}
-  sigma.t1t1 <- sqrt(sigma.w^2*sigma.t1t^2/denominator)
-  
-  return(list(m=m.t1t1, sigma=sigma.t1t1))
-  
-}
-
-
-
-# KF inference
+#---------------------------------------------------------------------------------------------------------------------
+# inference of GP under KF
 gp.KF <- function(y, gamma, sigma.w, m0, sigma0){
   
   # compute the parameters
@@ -68,21 +39,31 @@ gp.KF <- function(y, gamma, sigma.w, m0, sigma0){
   
   for(t in 1:(n-1)){
     # prediction step
-    pred.param <- pred_step(m1, sigma1, phi, sigma.v)
+    pred.param <- pred_step(m_tt = m1, 
+                            sigma_tt = sigma1, 
+                            phi = phi, 
+                            sigma_v = sigma.v)
     m0 <- pred.param$m
     sigma0 <- pred.param$sigma
     t1t.record.i <- data.frame(t = t, m = m0, sigma = sigma0)
     t1t.record <- rbind(t1t.record, t1t.record.i)
     
     # updating step
-    update.param <- update_step(m0, sigma0, phi, sigma.w, y[t+1])
+    update.param <-     update_step(m_t1t = m0, 
+                                    sigma_t1t = sigma0, 
+                                    phi = phi, 
+                                    sigma_w = sigma.w, 
+                                    new_y = y[t+1])
     m1 <- update.param$m
     sigma1 <- update.param$sigma
     tt.record.i <- data.frame(t = t+1, m = m1, sigma = sigma1)
     tt.record <- rbind(tt.record, tt.record.i)
   }
   # prediction step at t=n
-  pred.param <- pred_step(m1, sigma1, phi, sigma.v)
+  pred.param <- pred_step(m_tt = m1, 
+                          sigma_tt = sigma1, 
+                          phi = phi, 
+                          sigma_v = sigma.v)
   m0 <- pred.param$m
   sigma0 <- pred.param$sigma
   t1t.record.n <- data.frame(t = n, m = m0, sigma = sigma0)
@@ -91,7 +72,7 @@ gp.KF <- function(y, gamma, sigma.w, m0, sigma0){
   return(list(tt=tt.record, t1t=t1t.record))
 }
 
-
+#---------------------------------------------------------------------------------------------------------------------
 # smoothing under KF
 smooth.KF <- function(n, tt.record, t1t.record, alpha){
   # alpha: (1-alpha) credible interval
@@ -121,26 +102,7 @@ smooth.KF <- function(n, tt.record, t1t.record, alpha){
   return(smooth.record)
 }
 
-# prediction under KF
-pred.KF <- function(m.nn, sd.nn, gamma){
-  # m.nn: numeric, smoothed m_{n|n}
-  # sd.nn: numeric, smoothed sd_{n|n}
-  
-  # compute the parameters
-  phi <- exp(-1/gamma)
-  sigma.v <- sqrt(1- exp(-2/gamma))
-  
-  # predicted m
-  pred.m <- phi*last.smooth$m
-  
-  # predicted sd^2
-  pred.sd2 <- last.smooth$sigma^2*phi^2 + sigma.v^2
-  
-  # output 
-  return(list(m = pred.m,
-              sigma = sqrt(pred.sd2)))
-}
-
+#---------------------------------------------------------------------------------------------------------------------
 
 loglikelihood.partial <- function(gamma, sigma.w){
   # initialise the data.frame
@@ -228,6 +190,7 @@ loglikelihood.partial <- function(gamma, sigma.w){
   return(list(gamma = partial.gamma.logp, sd2 = partial.sd2.logp))
 }
 
+#---------------------------------------------------------------------------------------------------------------------
 # compute log-likelihood
 compute_logp <- function(y, gamma, sigma.w, m0, sigma0){
   # compute the KF inference

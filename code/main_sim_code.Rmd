@@ -8,17 +8,23 @@ output: pdf_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
+# import packages
 library(dplyr)
 library(ggplot2)
 library(MASS)
+library(Rcpp)
+
+# set seed
 set.seed(123)
+
+# call functions
 source("main_functions.R")
+sourceCpp("pred_step.cpp")
+sourceCpp("update_step.cpp")
+sourceCpp("predKF.cpp")
 ```
 
-
-
-
-## Inference of GP using Kalman Filter
+# Simulated state-space model
 
 ```{r}
 # initialize
@@ -44,7 +50,7 @@ sigma0 <- 1
 hyperparam_hat <- optim_parm(y, m0, sigma0)
 gamma <- hyperparam_hat$gamma
 sigma.w <- hyperparam_hat$sigma.w
-
+hyperparam_hat
 ```
 
 
@@ -89,7 +95,9 @@ legend("bottomleft", legend = c("observation", "smoothing mean","99% credible in
 # predict the next future time series
 last.smooth <- tt.record %>% filter(t==n)
 
-pred.record <- predKF(last.smooth$m, last.smooth$sigma, gamma)
+pred.record <- predKF(m_nn = last.smooth$m, 
+                      sd_nn = last.smooth$sigma, 
+                      gamma = gamma)
 ```
 
 
@@ -107,85 +115,6 @@ legend("bottomleft", legend = c("observation", "smoothing mean",
        pch = c(15, 16, NA, 17 ), 
        lty = c(NA, NA, 2, NA),
        col=c("#56B4E9","#E69F00","#D55E00","red"))
-```
-
-
-
-## Using Rcpp
-
-
-```{r warning=FALSE}
-
-library(Rcpp)
-sourceCpp("pred_step.cpp")
-sourceCpp("update_step.cpp")
-sourceCpp("predKF.cpp")
-```
-
-```{r}
-gp.KF <- function(y, gamma, sigma.w, m0, sigma0){
-  
-  # compute the parameters
-  phi <- exp(-1/gamma)
-  sigma.v <- sqrt(1- exp(-2/gamma))
-  
-  # length of y
-  n <- length(y)
-  
-  # record parameters m_{t|t}, sigma_{t|t}, m{t+1|t}, sigma_{t+1|t}
-  tt.record <- data.frame(t = NULL, m = NULL, sigma = NULL)
-  t1t.record <- data.frame(t = NULL, m = NULL, sigma = NULL)
-  
-  
-  m1 <- sigma0^2*(y[1]-m0)/(sigma0^2+sigma.w^2)
-  sigma1 <- sqrt(sigma0^2 - sigma0^4/(sigma0^2+sigma.w^2))
-  
-  tt.record1 <- data.frame(t = 1, m = m1, sigma = sigma1)
-  tt.record <- rbind(tt.record, tt.record1)
-  
-  for(t in 1:(n-1)){
-    # prediction step
-    pred.param <- pred_step(m_tt = m1, 
-                            sigma_tt = sigma1, 
-                            phi = phi, 
-                            sigma_v = sigma.v)
-    m0 <- pred.param$m
-    sigma0 <- pred.param$sigma
-    t1t.record.i <- data.frame(t = t, m = m0, sigma = sigma0)
-    t1t.record <- rbind(t1t.record, t1t.record.i)
-    
-    # updating step
-    update.param <-     update_step(m_t1t = m0, 
-                                    sigma_t1t = sigma0, 
-                                    phi = phi, 
-                                    sigma_w = sigma.w, 
-                                    new_y = y[t+1])
-    m1 <- update.param$m
-    sigma1 <- update.param$sigma
-    tt.record.i <- data.frame(t = t+1, m = m1, sigma = sigma1)
-    tt.record <- rbind(tt.record, tt.record.i)
-  }
-  # prediction step at t=n
-  pred.param <- pred_step(m_tt = m1, 
-                          sigma_tt = sigma1, 
-                          phi = phi, 
-                          sigma_v = sigma.v)
-  m0 <- pred.param$m
-  sigma0 <- pred.param$sigma
-  t1t.record.n <- data.frame(t = n, m = m0, sigma = sigma0)
-  t1t.record <- rbind(t1t.record, t1t.record.n)
-  
-  return(list(tt=tt.record, t1t=t1t.record))
-}
-```
-
-```{r}
-# predict the next future time series
-last.smooth <- tt.record %>% filter(t==n)
-
-pred.record <- predKF(m_nn = last.smooth$m, 
-                      sd_nn = last.smooth$sigma, 
-                      gamma = gamma)
 ```
 
 
