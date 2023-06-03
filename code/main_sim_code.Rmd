@@ -33,7 +33,7 @@ phi <- exp(-1/gamma)
 sigma.v <- sqrt(1- exp(-2/gamma))
 
 sigma.w <- 1
-n <- 1e2
+n <- 3e2
 
 # simulate state models
 y <- sim_Xt(0, n, gamma)[-1] + rnorm(n, 0, sigma.w)
@@ -42,12 +42,16 @@ y <- sim_Xt(0, n, gamma)[-1] + rnorm(n, 0, sigma.w)
 ## Hyper-parameter selection
 
 
+
 ```{r}
 # initialize
 m0 <- 0
 sigma0 <- 1
 
-hyperparam_hat <- optim_parm(y, m0, sigma0)
+# observed length
+T <- 200
+
+hyperparam_hat <- optim_parm(y[1:T], m0, sigma0)
 gamma <- hyperparam_hat$gamma
 sigma.w <- hyperparam_hat$sigma.w
 hyperparam_hat
@@ -55,7 +59,7 @@ hyperparam_hat
 
 
 ```{r}
-loglikelihood.partial(gamma, sigma.w)
+loglikelihood.partial(y[1:T], gamma, sigma.w, m0, sigma0)
 ```
 
 ## KF inference
@@ -98,24 +102,29 @@ last.smooth <- tt.record %>% filter(t==n)
 pred.record <- predKF(m_nn = last.smooth$m, 
                       sd_nn = last.smooth$sigma, 
                       gamma = gamma)
+
+
+pred.sd <- sqrt(t1t.record$sigma^2 + sigma.w^2)
+t1t.upper <- qnorm(1-alpha/2, mean=t1t.record$m, sd=pred.sd )
+t1t.lower <- qnorm(alpha/2, mean=t1t.record$m, sd=pred.sd )
 ```
 
 
 ```{r}
 plot(1:n, y, col="#56B4E9", pch=15,
-     main = "Smoothing and prediction under KF", 
+     main = "Prediction under KF", 
      xlab="time", ylab="value", 
      xlim=c(0,n+2), ylim=c(min(y)-2.5, max(y)+0.5))
-points(smooth.record$t, smooth.record$m, col="#E69F00", pch=16)
-points(n+1, pred.record$m, pch=17, col="red")
-lines(smooth.record$t, smooth.record$upper, col="#D55E00", lty=2)
-lines(smooth.record$t, smooth.record$lower, col="#D55E00", lty=2)
-legend("bottomleft", legend = c("observation", "smoothing mean",
-                                "99% credible interval", "predicted point"), 
-       pch = c(15, 16, NA, 17 ), 
-       lty = c(NA, NA, 2, NA),
-       col=c("#56B4E9","#E69F00","#D55E00","red"))
+points(t1t.record$t, t1t.record$m, col="#E69F00", pch=16)
+lines(t1t.record$t, t1t.upper, col="#D55E00", lty=2)
+lines(t1t.record$t, t1t.lower, col="#D55E00", lty=2)
+legend("bottomleft", legend = c("observation", "prediction mean",
+                                "99% credible interval"), 
+       pch = c(15, 16, NA), 
+       lty = c(NA, NA, 2),
+       col=c("#56B4E9","#E69F00","#D55E00"))
 ```
+
 
 
 

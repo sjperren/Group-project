@@ -172,7 +172,7 @@ The above prediction algorithm is implemented as function `pred.KF` in the follo
 
 ```{r}
 # prediction under KF
-pred.KF <- function(m.nn, sd.nn, gamma){
+predKF <- function(m.nn, sd.nn, gamma){
   # m.nn: numeric, smoothed m_{n|n}
   # sd.nn: numeric, smoothed sd_{n|n}
   
@@ -353,7 +353,7 @@ gp.KF <- function(y, gamma, sigma.w, m0, sigma0){
 }
 ```
 
-Here is the functions `pred.KF`  written in Rcpp version:
+Here is the functions `predKF`  written in Rcpp version:
 
 ```{r warning=FALSE}
 sourceCpp(code='
