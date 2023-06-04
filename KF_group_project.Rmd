@@ -173,7 +173,9 @@ kf.gp <- function(y,gamma,Sigmaw,m0=0,Sigma0=1){
   Sigmav <- 1-exp(-2/gamma)
   result <- kalman(y,phi=phi,Sigmav=Sigmav,Sigmaw=Sigmaw,m0=m0,Sigma0=Sigma0)
   
-  return (list(mu.p=result$mu.p,Sigma.p=result$Sigma.p,mu.f=result$mu.f,Sigma.f=result$Sigma.f,mu.s=result$mu.s,Sigma.s=result$Sigma.s))
+  return (list(mu.p=result$mu.p, Sigma.p=result$Sigma.p,
+               mu.f=result$mu.f, Sigma.f=result$Sigma.f,
+               mu.s=result$mu.s, Sigma.s=result$Sigma.s))
   
 }
 
@@ -376,7 +378,17 @@ We will use the `optim` for our method as the naive implementation of the partia
 
 We will set the first $T = $ for training to fit the MLE estimates of $\gamma$ and $\sigma_w^2$, then fit the whole model using `kf.gp`.
 
+https://machinelearningmastery.com/time-series-data-stationary-python/
 
+```{r}
+read.file <- read.csv("female_birth.csv") %>% data.table()
+dd1 <- read.file %>% select("Births") %>% mutate(t=1:nrow(read.file))
+colnames(dd1)[1] <- "value"
+
+plot(dd1$t, dd1$value)
+
+acf(dd1$value)
+```
 
 # Comparison of Performance between KF and Gaussian Process Regression
 
