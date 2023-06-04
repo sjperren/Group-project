@@ -1,0 +1,98 @@
+---
+title: "Gaussian process regression"
+author: "Xinrui Shi"
+date: "2023-06-04"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+require(dplyr) #for pipe function
+require(ggplot2) # for plotting
+
+source("main_functions.R")
+```
+
+```{r}
+# initialize
+gamma <- 1
+phi <- exp(-1/gamma)
+sigma.v <- sqrt(1- exp(-2/gamma))
+
+sigma.w <- 1
+n <- 1e2
+
+# simulate state models
+y <- sim_Xt(0, n, gamma)[-1] + rnorm(n, 0, sigma.w)
+```
+
+```{r}
+state.space.gp.fit <- function(y, gamma, sigma.w, alpha){
+  # The K12 and K22 for k=n
+  K12.n <- matrix(sapply(n:1, function(k)exp(-k/gamma)), nrow=1)
+  K22.n <- matrix(0, n, n)
+  for(i in 1:n){
+    for(j in 1:n){
+      K22.n [i,j] <- exp(-abs(i-j)/gamma)
+    }
+  }
+
+  # fit data
+  gp.record <- data.frame(t = NULL, mean = NULL, sd = NULL)
+
+  # GP regression in online fashion
+  for(k in 1:n){
+    # y_{1:k}
+    y.k <- matrix(y[1:k], ncol=1)
+    # corresponding K12 and K22
+    K12.k <- matrix(K12.n[, (n-k+1):n], nrow=1)
+    K22.k <- K22.n[1:k, 1:k]
+    
+    # inverse of (K22 + sigma^2*I)
+    solve.inv <- solve(K22.k + sigma.w^2*identity(k))
+    
+    # estimated mean and sd^2 for y_{k+1}
+    pred.mu <- K12.k %*% solve.inv %*% y.k
+    pred.K <- 1- K12.k %*%  solve.inv %*% t(K12.k)
+    
+    # record the result
+    gp.record <- rbind(gp.record,
+                     data.frame(t = k, 
+                                mean = as.numeric(pred.mu), 
+                                sd = as.numeric(sqrt(pred.K))))
+  }
+
+  # (1-alpha)% credible interval
+  gp.record$upper <- qnorm(1-alpha/2, mean=gp.record$mean, sd=gp.record$sd )
+  gp.record$lower <- qnorm(alpha/2, mean=gp.record$mean, sd=gp.record$sd)
+  
+  return( gp.record)
+}
+```
+
+
+```{r}
+# fitting GP regression with 99% credible interval
+alpha <- 0.01
+gp.record <- state.space.gp.fit(y, gamma, sigma.w, alpha)
+
+plot(1:n, y, col="#56B4E9", pch=15, ylim=c(min(y)-2.5, max(y)+0.5),
+       main = "GP regression", xlab="time", ylab="value")
+points(gp.record$t, gp.record$mean, col="#E69F00", pch=16)
+lines(gp.record$t, gp.record$upper, col="#D55E00", lty=2)
+lines(gp.record$t, gp.record$lower, col="#D55E00", lty=2)
+legend("bottomleft", legend = c("observation", "prediction mean",
+                                "99% credible interval"), 
+       pch = c(15, 16, NA), 
+       lty = c(NA, NA, 2),
+       col=c("#56B4E9","#E69F00","#D55E00"))
+```
+
+
+
+```{r}
+
+```
+
+
