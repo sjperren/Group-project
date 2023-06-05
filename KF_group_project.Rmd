@@ -277,7 +277,7 @@ cv99 = qnorm(1-alpha/2)
 CIupper.s<- mu.s + cv99*se.s
 CIlower.s <- mu.s - cv99*se.s
 
-plot(time,y,cex=0.5,col='darkgreen',pch=5,ylim=c(-2.5,2.5),main='Predicted y and observed y')
+plot(time,y,cex=0.5,col='darkgreen',pch=5,ylim=c(-2.5,2.5),main='Smoothing y and observed y')
 points(time,mu.s,cex=0.5,col='red',pch=10)
 points(time,CIupper.s,col='blue',type ='l',lty=2,lwd=1)
 points(time,CIlower.s,col='blue',type ='l',lty=2,lwd=1)
@@ -346,6 +346,24 @@ points(time,mu.p,cex=0.5,col='red',pch=10)
 points(time,CIupper.p,col='blue',type ='l',lty=2,lwd=1)
 points(time,CIlower.p,col='blue',type ='l',lty=2,lwd=1)
 legend(1,-1,legend= c('Observation','Predicted','99% Upper Confidence Interval','99% Lower Confidence Interval'), col=c('darkgreen','red','blue','blue'),lty=c(1,1,2,2),cex=.6)
+```
+```{r}
+mu.s <- results$mu.s
+Sigma.s <- results$Sigma.s
+
+se.s <- sqrt(Sigma.s)
+
+alpha=0.01
+cv99 = qnorm(1-alpha/2)
+CIupper.s<- mu.s + cv99*se.s
+CIlower.s <- mu.s - cv99*se.s
+
+plot(time,y,cex=0.5,col='darkgreen',pch=5,ylim=c(-2.5,2.5),
+     main='Smoothing y and observed y using MLE estimates')
+points(time,mu.s,cex=0.5,col='red',pch=10)
+points(time,CIupper.s,col='blue',type ='l',lty=2,lwd=1)
+points(time,CIlower.s,col='blue',type ='l',lty=2,lwd=1)
+legend(1,-1,legend= c('Observation','Smoothing','99% Upper Confidence Interval','99% Lower Confidence Interval'), col=c('darkgreen','red','blue','blue'),lty=c(1,1,2,2),cex=.6)
 ```
 
 It's still doing quite well.
@@ -590,6 +608,13 @@ legend("bottomleft", legend = c("observation", "prediction mean",
        lty = c(NA, NA, 2),
        col=c("#56B4E9","#E69F00","#D55E00"))
 ```
+```{r warning=FALSE}
+microbenchmark(KF = kf.gp(y=y,gamma=mle$gamma,Sigmaw=mle$Sigmaw),
+               GPR = state.space.gp.fit(y, mle$gamma, mle$Sigmaw, alpha)
+               ) %>%
+pander()
+
+```
 
 ## GP on real data
 
@@ -603,7 +628,7 @@ gp.record2 <- state.space.gp.fit(scale(dd1$value), mle2$gamma, mle2$Sigmaw, alph
 plot(1:nrow(dd1), scale(dd1$value), col="#56B4E9", pch=15,
      main = "GP regression on 1959 female birth data", 
      xlab="time", ylab="value",
-     xlim = c(1,150))
+     xlim = c(1, 150))
 points(gp.record2$t, gp.record2$mean, col="#E69F00", pch=16)
 lines(gp.record2$t, gp.record2$upper, col="#D55E00", lty=2)
 lines(gp.record2$t, gp.record2$lower, col="#D55E00", lty=2)
@@ -628,6 +653,9 @@ legend("bottomleft", legend = c("observation", "prediction mean",
        lty = c(NA, NA, 2),
        col=c("#56B4E9","#E69F00","#D55E00"))
 ```
+
+
+
 
 # Using Rcpp
 
@@ -704,6 +732,9 @@ RCPP_MODULE(kalmanModule) {
 
 In comparison, the function written in Rcpp version can effectively
 improve the computational speed.
+```{r}
+
+```
 
 ```{r warning=FALSE}
 microbenchmark(R = kalman(y, phi=1,
