@@ -3,20 +3,37 @@ title: "kalman_filter"
 author: "Qi"
 date: "2023-06-04"
 output: html_document
+editor_options: 
+  markdown: 
+    wrap: 72
 ---
-#Function List
+
+# Function List
+
 $\bullet$ `kalmanSimulate`
-$\bullet$ `kalman`:
-$\bullet$ `kf.gp`:
+
+$\bullet$ `kalman`
+
+$\bullet$ `kf.gp`
+
 $\bullet$ `kf.loglikelihood`
+
 $\bullet$ `optim_parm`
 
+```{r}
+library(microbenchmark)
+library(dplyr)
+library(pander)
+library(data.table)
+```
 
 # Simulated Data
 
 ## Simulation of state-space model.
 
-The following code simulate the state space model of the form $$X_t = \phi X_{t-1} + V$$ $$Y_t = X_t + W$$ where $W\sim \mathcal{N}(0,\sigma_w^2)$ and $V\sim \mathcal{N}(0,\sigma_v^2)$.
+The following code simulate the state space model of the form
+$$X_t = \phi X_{t-1} + V$$ $$Y_t = X_t + W$$ where
+$W\sim \mathcal{N}(0,\sigma_w^2)$ and $V\sim \mathcal{N}(0,\sigma_v^2)$.
 
 ```{r}
 set.seed(100)
@@ -51,13 +68,20 @@ plot(time,y,cex=0.5,col='darkgreen',pch=5,ylim=c(-3,3))
 points(time,originalX,cex=0.5,col='red',pch=10)
 ```
 
-The red dots are hidden states and the green dots are the observed values which involves some independent noise.
+The red dots are hidden states and the green dots are the observed
+values which involves some independent noise.
 
 ## Kalman Filter
 
-We will first write a Kalman filter for general state-space model, then embed that function to our specific case with $\phi = \exp(-\frac{1}{\gamma})$ and $\sigma_v^2 = 1-\exp(-\frac{2}{\gamma})$.
+We will first write a Kalman filter for general state-space model, then
+embed that function to our specific case with
+$\phi = \exp(-\frac{1}{\gamma})$ and
+$\sigma_v^2 = 1-\exp(-\frac{2}{\gamma})$.
 
-The `Kalman` function takes inputs $\phi$, $\sigma_v^2$, $\sigma_w^2$, $m_0$ and $\sigma_0^2$, it returns a the predicted mean, predicted variance, updated mean, updated variance, smoothing mean and smoothing variance.
+The `Kalman` function takes inputs $\phi$, $\sigma_v^2$, $\sigma_w^2$,
+$m_0$ and $\sigma_0^2$, it returns a the predicted mean, predicted
+variance, updated mean, updated variance, smoothing mean and smoothing
+variance.
 
 ```{r KF}
 kalman <- function(y,phi,Sigmav,Sigmaw,m0,Sigma0){
@@ -104,7 +128,8 @@ kalman <- function(y,phi,Sigmav,Sigmaw,m0,Sigma0){
 }
 ```
 
-We first do some experiments to see if the Kalman Filter Algorithm itself makes sense:
+We first do some experiments to see if the Kalman Filter Algorithm
+itself makes sense:
 
 ```{r}
 results.KF <- kalman(y,phi=1,Sigmav=0.02,Sigmaw=0.2,m0=0,Sigma0=1)
@@ -122,7 +147,7 @@ plot(time,y,cex=0.5,col='darkgreen',pch=5,ylim=c(-2.5,2.5),main='Updated y and o
 points(time,mu.f,cex=0.5,col='red',pch=10)
 points(time,CIupper.f,col='blue',type ='l',lty=2,lwd=1)
 points(time,CIlower.f,col='blue',type ='l',lty=2,lwd=1)
-legend(1,-1,legend= c('Observation','Updated','99% Upper Confidence Interval','99% Lower Confidence Interval'), col=c('darkgreen','red','blue','blue'),lty=c(1,1,2,2),cex=.3)
+legend(1,-1,legend= c('Observation','Updated','99% Upper Confidence Interval','99% Lower Confidence Interval'), col=c('darkgreen','red','blue','blue'),lty=c(1,1,2,2),cex=.6)
 ```
 
 ```{r}
@@ -140,7 +165,7 @@ plot(time,y,cex=0.5,col='darkgreen',pch=5,ylim=c(-2.5,2.5),main='Predicted y and
 points(time,mu.p,cex=0.5,col='red',pch=10)
 points(time,CIupper.p,col='blue',type ='l',lty=2,lwd=1)
 points(time,CIlower.p,col='blue',type ='l',lty=2,lwd=1)
-legend(1,-1,legend= c('Observation','Predicted','99% Upper Confidence Interval','99% Lower Confidence Interval'), col=c('darkgreen','red','blue','blue'),lty=c(1,1,2,2),cex=.3)
+legend(1,-1,legend= c('Observation','Predicted','99% Upper Confidence Interval','99% Lower Confidence Interval'), col=c('darkgreen','red','blue','blue'),lty=c(1,1,2,2),cex=.6)
 ```
 
 ```{r}
@@ -158,12 +183,17 @@ plot(time,y,cex=0.5,col='darkgreen',pch=5,ylim=c(-2.5,2.5),main='Smoothing y and
 points(time,mu.s,cex=0.5,col='red',pch=10)
 points(time,CIupper.s,col='blue',type ='l',lty=2,lwd=1)
 points(time,CIlower.s,col='blue',type ='l',lty=2,lwd=1)
-legend(1,-1,legend= c('Observation','Smoothing','99% Upper Confidence Interval','99% Lower Confidence Interval'), col=c('darkgreen','red','blue','blue'),lty=c(1,1,2,2),cex=.3)
+legend(1,-1,legend= c('Observation','Smoothing','99% Upper Confidence Interval','99% Lower Confidence Interval'), col=c('darkgreen','red','blue','blue'),lty=c(1,1,2,2),cex=.6)
 ```
 
-The result makes sense, that smoothing distribution is indeed 'smoother' than the predicted values and updated values. Also we notice that the confidence interval for predictions are rather wide. All the observed values are contained in the confidence interval.
+The result makes sense, that smoothing distribution is indeed 'smoother'
+than the predicted values and updated values. Also we notice that the
+confidence interval for predictions are rather wide. All the observed
+values are contained in the confidence interval.
 
-We now embed the KF algorithm into our specific case, namely take $$\phi = \exp(\frac{1}{\gamma})$$ and $$\sigma_v^2 = 1-\exp(-\frac{2}{\gamma})$$
+We now embed the KF algorithm into our specific case, namely take
+$$\phi = \exp(\frac{1}{\gamma})$$ and
+$$\sigma_v^2 = 1-\exp(-\frac{2}{\gamma})$$
 
 ```{r}
 kf.gp <- function(y,gamma,Sigmaw,m0=0,Sigma0=1){
@@ -194,9 +224,16 @@ kf.loglikelihood1 <- function(y,mu.p,Sigma.p,Sigmaw,m0=0,Sigma0=1){
 }
 ```
 
-There are two functions here: $\bullet$ `kf.gp` simply applies the Kalman Filter on observed $y$, with $\sigma_v^2$ and $\phi$ as functions of hyper parameter $\gamma$, computing the predictive, updated and smoothing distributions. $\bullet$ `kf.loglikelihood` computes the loglikelihood of the observed $y$ in a recursive regression by noting $$\log(p(y_{1:T}) = p(y_1) + \sum_{t=2}^T p(y_t|y_{1:t-1})$$ and $$p(y_t|y_{1:t-1}) = \mathcal{N}(y_t;m_{t|t-1},\sigma_{t|t-1}^2 + \sigma_w^2)$$
+There are two functions here: $\bullet$ `kf.gp` simply applies the
+Kalman Filter on observed $y$, with $\sigma_v^2$ and $\phi$ as functions
+of hyper parameter $\gamma$, computing the predictive, updated and
+smoothing distributions. $\bullet$ `kf.loglikelihood` computes the
+loglikelihood of the observed $y$ in a recursive regression by noting
+$$\log(p(y_{1:T}) = p(y_1) + \sum_{t=2}^T p(y_t|y_{1:t-1})$$ and
+$$p(y_t|y_{1:t-1}) = \mathcal{N}(y_t;m_{t|t-1},\sigma_{t|t-1}^2 + \sigma_w^2)$$
 
-We now simulate with $\gamma=10$ and $\sigma_w^2=0.2$ to see if our result fit.
+We now simulate with $\gamma=10$ and $\sigma_w^2=0.2$ to see if our
+result fit.
 
 ```{r}
 set.seed(1)
@@ -223,10 +260,11 @@ plot(time,y,cex=0.5,col='darkgreen',pch=5,ylim=c(-2.5,2.5),main='Predicted y and
 points(time,mu.p,cex=0.5,col='red',pch=10)
 points(time,CIupper.p,col='blue',type ='l',lty=2,lwd=1)
 points(time,CIlower.p,col='blue',type ='l',lty=2,lwd=1)
-legend(1,-1,legend= c('Observation','Predicted','99% Upper Confidence Interval','99% Lower Confidence Interval'), col=c('darkgreen','red','blue','blue'),lty=c(1,1,2,2),cex=.3)
+legend(1,-1,legend= c('Observation','Predicted','99% Upper Confidence Interval','99% Lower Confidence Interval'), col=c('darkgreen','red','blue','blue'),lty=c(1,1,2,2),cex=.6)
 ```
 
-We see the KF fits indeed quite well. We further plot the smoothing distributions:
+We see the KF fits indeed quite well. We further plot the smoothing
+distributions:
 
 ```{r}
 mu.s <- results$mu.s
@@ -243,15 +281,22 @@ plot(time,y,cex=0.5,col='darkgreen',pch=5,ylim=c(-2.5,2.5),main='Predicted y and
 points(time,mu.s,cex=0.5,col='red',pch=10)
 points(time,CIupper.s,col='blue',type ='l',lty=2,lwd=1)
 points(time,CIlower.s,col='blue',type ='l',lty=2,lwd=1)
-legend(1,-1,legend= c('Observation','Smoothing','99% Upper Confidence Interval','99% Lower Confidence Interval'), col=c('darkgreen','red','blue','blue'),lty=c(1,1,2,2),cex=.3)
+legend(1,-1,legend= c('Observation','Smoothing','99% Upper Confidence Interval','99% Lower Confidence Interval'), col=c('darkgreen','red','blue','blue'),lty=c(1,1,2,2),cex=.6)
 ```
-This indeed has narrower confidence interval and smoother trend. All observed values are all contained in the confidence interval.
+
+This indeed has narrower confidence interval and smoother trend. All
+observed values are all contained in the confidence interval.
 
 ## Hyper parameter Selection
 
-In real life we never observe the hyper parameters $\gamma$ and $\sigma_w^2$. We propose two ways for hyper parameter selection: $\bullet$ Use `optim` to optimize against $\sigma_w^2$ and $\gamma$ against the loglikehood computed using `kf.loglikelihood`.
+In real life we never observe the hyper parameters $\gamma$ and
+$\sigma_w^2$. We propose two ways for hyper parameter selection:
 
-$\bullet$ Set the partial derivatives of the loglikelihood with respect to hyper parameters to 0. We will explain that in details later.
+$\bullet$ Use `optim` to optimize against $\sigma_w^2$ and $\gamma$
+against the loglikehood computed using `kf.loglikelihood`.
+
+$\bullet$ Set the partial derivatives of the loglikelihood with respect
+to hyper parameters to 0. We will explain that in details later.
 
 ### Optimize over Loglikelihood
 
@@ -272,14 +317,17 @@ optim_parm <- function(y, m0=0, Sigma0=1){
 }
 ```
 
-We fit the first $70\%$ of data to get an MLE estimates:
+We fit the first $80\%$ of data to get an MLE estimates:
+
 ```{r}
 mle <- optim_parm(y[1:80])
 mle$gamma
 mle$Sigmaw
 ```
 
-Now we check if the MLE estimates is reasonable by making predictions on the whole data set $1:100$:
+Now we check if the MLE estimates is reasonable by making predictions on
+the whole data set $1:100$:
+
 ```{r}
 results <- kf.gp(y=y,gamma=mle$gamma,Sigmaw=mle$Sigmaw)
 
@@ -297,14 +345,38 @@ plot(time,y,cex=0.5,col='darkgreen',pch=5,ylim=c(-2.5,2.5),main='Predicted y and
 points(time,mu.p,cex=0.5,col='red',pch=10)
 points(time,CIupper.p,col='blue',type ='l',lty=2,lwd=1)
 points(time,CIlower.p,col='blue',type ='l',lty=2,lwd=1)
-legend(1,-1,legend= c('Observation','Predicted','99% Upper Confidence Interval','99% Lower Confidence Interval'), col=c('darkgreen','red','blue','blue'),lty=c(1,1,2,2),cex=.3)
+legend(1,-1,legend= c('Observation','Predicted','99% Upper Confidence Interval','99% Lower Confidence Interval'), col=c('darkgreen','red','blue','blue'),lty=c(1,1,2,2),cex=.6)
 ```
+
 It's still doing quite well.
 
-The second method, more like a justification to our `optim`, is to compute the partial derivatives recursively and set that values to 0. The details of derivation are included in the project report, we give the final result here that how we can recursively update $\frac{\partial m_{t|t}}{\partial \theta}$ and $\frac{\partial \sigma^2_{t|t}}{\partial \theta}$ given $\frac{\partial m_{t|t-1}}{\partial \theta}$ and $\frac{\partial \sigma^2_{t|t-1}}{\partial \theta}$. And similarly update $\frac{\partial m_{t+1|t}}{\partial \theta}$ and $\frac{\partial \sigma^2_{t+1|t}}{\partial \theta}$ given $\frac{\partial m_{t|t}}{\partial \theta}$ and $\frac{\partial \sigma^2_{t|t}}{\partial \theta}$, where $\theta$ are hyper parameters.
+The second method, more like a justification to our `optim`, is to
+compute the partial derivatives recursively and set that values to 0.
+The details of derivation are included in the project report, we give
+the final result here that how we can recursively update
+$\frac{\partial m_{t|t}}{\partial \theta}$ and
+$\frac{\partial \sigma^2_{t|t}}{\partial \theta}$ given
+$\frac{\partial m_{t|t-1}}{\partial \theta}$ and
+$\frac{\partial \sigma^2_{t|t-1}}{\partial \theta}$. And similarly
+update $\frac{\partial m_{t+1|t}}{\partial \theta}$ and
+$\frac{\partial \sigma^2_{t+1|t}}{\partial \theta}$ given
+$\frac{\partial m_{t|t}}{\partial \theta}$ and
+$\frac{\partial \sigma^2_{t|t}}{\partial \theta}$, where $\theta$ are
+hyper parameters.
 
-$$ \frac{\partial m_{t|t}}{\partial \gamma}=\frac{\partial m_{t|t-1}}{\partial \gamma}\frac{\sigma_w^2}{\sigma_w^2 + \sigma_{t|t-1}^2} + (y_t-m_{t|t-1})\frac{\partial \sigma_{t|t-1}^2}{\partial \gamma}\frac{\sigma_w^2}{(\sigma_w^2 + \sigma_{t|t-1}^2)^2}$$ $$\frac{\partial \sigma_{t|t}^2}{\partial \gamma}= \frac{\sigma_w^4}{(\sigma_w^2 + \sigma_{t|t-1}^2)^2}\frac{\partial \sigma_{t|t-1}^2}{\partial \gamma}$$ $$ \frac{\partial m_{t|t}}{\partial \sigma_w^2}=frac{\partial m_{t|t-1}}{\partial \sigma_w^2} \frac{\sigma_w^2}{\sigma_w^2 + \sigma_{t|t-1}^2} + (y_t-m_{t|t-1})\frac{\frac{\partial \sigma_{t|t-1}^2}{\partial \sigma_w^2}\sigma_w^2-\sigma_{t|t-1}^2}{(\sigma_w^2+\sigma_{t|t-1}^2)^2}$$ $$\frac{\partial \sigma_{t|t}^2}{\partial \sigma_w^2}=\sigma_w^4\frac{\partial \sigma_{t|t-1}^2}{\partial \sigma_w^2}\frac{1}{(\sigma_w^2+\sigma_{t|t-1}^2)^2} + \sigma_{t|t-1}^4\frac{1}{(\sigma_w^2+\sigma_{t|t-1}^2)^2}$$ $$\frac{\partial m_{t+1|t}}{\partial \gamma} = \frac{1}{\gamma^2}\exp(-\frac{1}{\gamma})m_{t|t} + \exp(-\frac{1}{\gamma})\frac{\partial m_{t|t}}{\partial \gamma}$$ $$\frac{\partial \sigma_{t+1|t}^2}{\partial \gamma} = -\frac{2}{\gamma^2}\exp(-\frac{2}{\gamma}) + \exp(-\frac{2}{\gamma})\frac{\partial \sigma_{t|t}^2}{\partial \gamma} + \frac{2}{\gamma^2}\exp(-\frac{2}{\gamma})\sigma_{t|t}^2$$ $$ \frac{\partial m_{t+1|t}}{\partial \sigma_w^2} = \exp(-\frac{1}{\gamma})\frac{\partial m_{t|t}}{\partial \sigma_w^2}$$ $$\frac{\partial \sigma_{t+1|t}^2}{\partial \sigma_w^2} = \exp(-\frac{2}{\gamma})\frac{\partial \sigma^2_{t|t}}{\partial \sigma_w^2}$$ Finally given all these results we have the partial derivatives with respect to the log likelihood: $$\frac{\partial \log(p(y_{k+1}|y_{1:k}))}{\partial \gamma} = \frac{y_{k+1}-m_{k+1|k}}{\sigma_{k+1|k}^2+\sigma_w^2}\frac{\partial m_{k+1|k}}{\partial \gamma} -\left(\frac{1}{2(\sigma_{k+1|k}^2+\sigma_w^2)}-\frac{(y_{k+1}-m_{k+1|k})^2}{2(\sigma_{k+1|k}^2+\sigma_w^2)^2}\right)\frac{\partial \sigma_{k+1|k}^2}{\partial \gamma}$$ and $$\frac{\partial \log(p(y_{k+1}|y_{1:k}))}{\partial \sigma_w^2} = \frac{y_{k+1}-m_{k+1|k}}{\sigma_{k+1|k}^2+\sigma_w^2}\frac{\partial m_{k+1|k}}{\partial \sigma_w^2} -\frac{1+\frac{\partial \sigma_{k+1|k}^2}{\partial \sigma_w^2}}{2(\sigma_{k+1|k}^2+\sigma_w^2)}+\frac{(y_{k+1}-m_{k+1|k})^2}{2(\sigma_{k+1|k}^2+\sigma_w^2)^2}(1+\frac{\partial \sigma_{k+1|k}^2}{\partial \sigma_w^2})$$.
-
+$$ \frac{\partial m_{t|t}}{\partial \gamma}=\frac{\partial m_{t|t-1}}{\partial \gamma}\frac{\sigma_w^2}{\sigma_w^2 + \sigma_{t|t-1}^2} + (y_t-m_{t|t-1})\frac{\partial \sigma_{t|t-1}^2}{\partial \gamma}\frac{\sigma_w^2}{(\sigma_w^2 + \sigma_{t|t-1}^2)^2}$$
+$$\frac{\partial \sigma_{t|t}^2}{\partial \gamma}= \frac{\sigma_w^4}{(\sigma_w^2 + \sigma_{t|t-1}^2)^2}\frac{\partial \sigma_{t|t-1}^2}{\partial \gamma}$$
+$$ \frac{\partial m_{t|t}}{\partial \sigma_w^2}=frac{\partial m_{t|t-1}}{\partial \sigma_w^2} \frac{\sigma_w^2}{\sigma_w^2 + \sigma_{t|t-1}^2} + (y_t-m_{t|t-1})\frac{\frac{\partial \sigma_{t|t-1}^2}{\partial \sigma_w^2}\sigma_w^2-\sigma_{t|t-1}^2}{(\sigma_w^2+\sigma_{t|t-1}^2)^2}$$
+$$\frac{\partial \sigma_{t|t}^2}{\partial \sigma_w^2}=\sigma_w^4\frac{\partial \sigma_{t|t-1}^2}{\partial \sigma_w^2}\frac{1}{(\sigma_w^2+\sigma_{t|t-1}^2)^2} + \sigma_{t|t-1}^4\frac{1}{(\sigma_w^2+\sigma_{t|t-1}^2)^2}$$
+$$\frac{\partial m_{t+1|t}}{\partial \gamma} = \frac{1}{\gamma^2}\exp(-\frac{1}{\gamma})m_{t|t} + \exp(-\frac{1}{\gamma})\frac{\partial m_{t|t}}{\partial \gamma}$$
+$$\frac{\partial \sigma_{t+1|t}^2}{\partial \gamma} = -\frac{2}{\gamma^2}\exp(-\frac{2}{\gamma}) + \exp(-\frac{2}{\gamma})\frac{\partial \sigma_{t|t}^2}{\partial \gamma} + \frac{2}{\gamma^2}\exp(-\frac{2}{\gamma})\sigma_{t|t}^2$$
+$$ \frac{\partial m_{t+1|t}}{\partial \sigma_w^2} = \exp(-\frac{1}{\gamma})\frac{\partial m_{t|t}}{\partial \sigma_w^2}$$
+$$\frac{\partial \sigma_{t+1|t}^2}{\partial \sigma_w^2} = \exp(-\frac{2}{\gamma})\frac{\partial \sigma^2_{t|t}}{\partial \sigma_w^2}$$
+Finally given all these results we have the partial derivatives with
+respect to the log likelihood:
+$$\frac{\partial \log(p(y_{k+1}|y_{1:k}))}{\partial \gamma} = \frac{y_{k+1}-m_{k+1|k}}{\sigma_{k+1|k}^2+\sigma_w^2}\frac{\partial m_{k+1|k}}{\partial \gamma} -\left(\frac{1}{2(\sigma_{k+1|k}^2+\sigma_w^2)}-\frac{(y_{k+1}-m_{k+1|k})^2}{2(\sigma_{k+1|k}^2+\sigma_w^2)^2}\right)\frac{\partial \sigma_{k+1|k}^2}{\partial \gamma}$$
+and
+$$\frac{\partial \log(p(y_{k+1}|y_{1:k}))}{\partial \sigma_w^2} = \frac{y_{k+1}-m_{k+1|k}}{\sigma_{k+1|k}^2+\sigma_w^2}\frac{\partial m_{k+1|k}}{\partial \sigma_w^2} -\frac{1+\frac{\partial \sigma_{k+1|k}^2}{\partial \sigma_w^2}}{2(\sigma_{k+1|k}^2+\sigma_w^2)}+\frac{(y_{k+1}-m_{k+1|k})^2}{2(\sigma_{k+1|k}^2+\sigma_w^2)^2}(1+\frac{\partial \sigma_{k+1|k}^2}{\partial \sigma_w^2})$$.
 
 ```{r}
 partialDerivatives <- function(y,gamma,Sigmaw,m0=0,Sigma0=1){
@@ -364,35 +436,281 @@ partialDerivatives <- function(y,gamma,Sigmaw,m0=0,Sigma0=1){
   
 ```
 
-We check if the MLE estimates in approach 1 has small partial derivatives:
+We check if the MLE estimates in approach 1 has small partial
+derivatives:
 
 ```{r}
 partialDerivatives(y[1:80],mle$gamma,mle$Sigmaw)
 ```
-This verifies the theory: we have the MLE estimates with partial derivatives with respect to $\gamma$ very close to 1. The partial derivatives with respect to $\sigma_w^2$, however, not quite well. This is likely that either our derivation with respect to $\sigma_w^2$ is wrong, or implementation is not correct due to tedious calculations.
-In principle we should see both partial derivatives close to 1.
 
-We will use the `optim` for our method as the naive implementation of the partial derivatives recursion is slower compared to built-in `optim`, and it is not quite correct.
+This verifies the theory: we have the MLE estimates with partial
+derivatives with respect to $\gamma$ very close to 1. The partial
+derivatives with respect to $\sigma_w^2$, however, not quite well. This
+is likely that either our derivation with respect to $\sigma_w^2$ is
+wrong, or implementation is not correct due to tedious calculations. In
+principle we should see both partial derivatives close to 1.
 
-# Read Data Analysis
+We will use the `optim` for our method as the naive implementation of
+the partial derivatives recursion is slower compared to built-in
+`optim`, and it is not quite correct.
 
-We will set the first $T = $ for training to fit the MLE estimates of $\gamma$ and $\sigma_w^2$, then fit the whole model using `kf.gp`.
+# Real Data Analysis
 
-https://machinelearningmastery.com/time-series-data-stationary-python/
+In this section, we select the stationary time series data
+`female_birth`, which consists of the number of female births in 1959.
+The data set is avaiable via the link:
+<https://machinelearningmastery.com/time-series-data-stationary-python/>
 
 ```{r}
-read.file <- read.csv("female_birth.csv") %>% data.table()
+# read the data set
+read.file <- read.csv("code/female_birth.csv") %>% data.table()
 dd1 <- read.file %>% select("Births") %>% mutate(t=1:nrow(read.file))
 colnames(dd1)[1] <- "value"
 
-plot(dd1$t, dd1$value)
+# plot the time series
+plot(dd1$t, dd1$value, lty=1, type ='l', 
+     main = "Real-world time series: female birth in 1959",
+     xlab = "time", ylab = "births")
+```
 
-acf(dd1$value)
+To check whether this time series is stationary, we plot its ACF plot:
+it is clear that the autocorrelation is rapidly decreasing to a value
+around zero and then it swings around zero. This ACF plot shows this
+selected time series is stationary.
+
+```{r}
+# check whether it is stationary
+births <- dd1$value
+acf(births)
+```
+
+We will set the first $T = 292$ for training to fit the MLE estimates of
+$\gamma$ and $\sigma_w^2$, then fit the whole model using `kf.gp`.
+
+```{r}
+# hyper-parameter selecton
+mle2 <- optim_parm(dd1$value[1:as.integer(nrow(dd1)*0.8)])
+mle2$gamma
+mle2$Sigmaw
+```
+
+```{r}
+results2 <- kf.gp(y=dd1$value,gamma=mle2$gamma,Sigmaw=mle2$Sigmaw)
+
+mu.p2 <- results2$mu.p
+Sigma.p2 <- results2$Sigma.p
+
+se.p2 <- sqrt(Sigma.p2)
+
+cv99 <- qnorm(1-alpha/2)
+CIupper.p2 <- mu.p2 + cv99*se.p2
+CIlower.p2 <- mu.p2 - cv99*se.p2
+
+plot(dd1$t, 
+     dd1$value,
+     cex=0.5,col='darkgreen',
+     pch=5,main='Predicted and observed female births in 1959')
+points(dd1$t, mu.p2, cex=0.5, col='red', pch=10)
+points(dd1$t, CIupper.p2, col='blue', type ='l', lty=2, lwd=1)
+points(dd1$t, CIlower.p2, col='blue', type ='l', lty=2, lwd=1)
+legend("bottomleft", 
+       legend = c('Observation','Predicted',
+                 '99% Upper Confidence Interval',
+                 '99% Lower Confidence Interval'), 
+       col = c('darkgreen','red','blue','blue'),
+       lty=c(1,1,2,2), cex=0.8)
 ```
 
 # Comparison of Performance between KF and Gaussian Process Regression
 
+The function `state.space.gp.fit` fits the time series using Gaussian
+process regression.
 
+```{r}
+state.space.gp.fit <- function(y, gamma, sigma.w, alpha){
+  
+  n <- length(y)
+  # The K12 and K22 for k=n
+  K12.n <- matrix(sapply(n:1, function(k)exp(-k/gamma)), nrow=1)
+  K22.n <- matrix(0, n, n)
+  for(i in 1:n){
+    for(j in 1:n){
+      K22.n [i,j] <- exp(-abs(i-j)/gamma)
+    }
+  }
 
+  # fit data
+  gp.record <- data.frame(t = NULL, mean = NULL, sd = NULL)
 
+  # GP regression in online fashion
+  for(k in 1:n){
+    # y_{1:k}
+    y.k <- matrix(y[1:k], ncol=1)
+    # corresponding K12 and K22
+    K12.k <- matrix(K12.n[, (n-k+1):n], nrow=1)
+    K22.k <- K22.n[1:k, 1:k]
+    
+    # inverse of (K22 + sigma^2*I)
+    solve.inv <- solve(K22.k + sigma.w^2*identity(k))
+    
+    # estimated mean and sd^2 for y_{k+1}
+    pred.mu <- K12.k %*% solve.inv %*% y.k
+    pred.K <- 1- K12.k %*%  solve.inv %*% t(K12.k)
+    
+    # record the result
+    gp.record <- rbind(gp.record,
+                     data.frame(t = k, 
+                                mean = as.numeric(pred.mu), 
+                                sd = as.numeric(sqrt(pred.K))))
+  }
 
+  # (1-alpha)% credible interval
+  gp.record$upper <- qnorm(1-alpha/2, mean=gp.record$mean, sd=gp.record$sd )
+  gp.record$lower <- qnorm(alpha/2, mean=gp.record$mean, sd=gp.record$sd)
+  
+  return( gp.record)
+}
+```
+
+## GP on simulated data
+
+```{r}
+# fitting GP regression with 99% credible interval
+alpha <- 0.01
+gp.record <- state.space.gp.fit(y, mle$gamma, mle$Sigmaw, alpha)
+
+plot(1:length(y), y, col="#56B4E9", pch=15, ylim=c(min(y)-2.5, max(y)+0.5),
+       main = "GP regression on simulated data", xlab="time", ylab="value")
+points(gp.record$t, gp.record$mean, col="#E69F00", pch=16)
+lines(gp.record$t, gp.record$upper, col="#D55E00", lty=2)
+lines(gp.record$t, gp.record$lower, col="#D55E00", lty=2)
+legend("bottomleft", legend = c("observation", "prediction mean",
+                                "99% credible interval"), 
+       pch = c(15, 16, NA), 
+       lty = c(NA, NA, 2),
+       col=c("#56B4E9","#E69F00","#D55E00"))
+```
+
+## GP on real data
+
+```{r}
+# fitting GP regression with 99% credible interval
+gp.record2 <- state.space.gp.fit(scale(dd1$value), mle2$gamma, mle2$Sigmaw, alpha)
+```
+
+```{r}
+# first 150 days
+plot(1:nrow(dd1), scale(dd1$value), col="#56B4E9", pch=15,
+     main = "GP regression on 1959 female birth data", 
+     xlab="time", ylab="value",
+     xlim = c(1,150))
+points(gp.record2$t, gp.record2$mean, col="#E69F00", pch=16)
+lines(gp.record2$t, gp.record2$upper, col="#D55E00", lty=2)
+lines(gp.record2$t, gp.record2$lower, col="#D55E00", lty=2)
+legend("bottomleft", legend = c("observation", "prediction mean",
+                                "99% credible interval"), 
+       pch = c(15, 16, NA), 
+       lty = c(NA, NA, 2),
+       col=c("#56B4E9","#E69F00","#D55E00"))
+```
+
+```{r}
+# full 365 days
+plot(1:nrow(dd1), scale(dd1$value), col="#56B4E9", pch=15,
+     main = "GP regression on 1959 female birth data", 
+     xlab="time", ylab="value")
+points(gp.record2$t, gp.record2$mean, col="#E69F00", pch=16)
+lines(gp.record2$t, gp.record2$upper, col="#D55E00", lty=2)
+lines(gp.record2$t, gp.record2$lower, col="#D55E00", lty=2)
+legend("bottomleft", legend = c("observation", "prediction mean",
+                                "99% credible interval"), 
+       pch = c(15, 16, NA), 
+       lty = c(NA, NA, 2),
+       col=c("#56B4E9","#E69F00","#D55E00"))
+```
+
+# Using Rcpp
+
+To improve the computational efficiency of our code, we re-write the
+function `kalman` in Rcpp version as follows:
+
+```{r}
+library(Rcpp)
+sourceCpp(code='
+#include <Rcpp.h>
+using namespace Rcpp;
+
+// Rcpp version of the function
+// The function takes NumericVector y, double phi, double Sigmav, double Sigmaw, double m0, and double Sigma0 as input
+// It returns a list containing the calculated values
+List kalmanRcpp(NumericVector y, double phi, double Sigmav, double Sigmaw, double m0, double Sigma0) {
+  int T = y.size();
+  
+  // Initialization
+  NumericVector mu_p(T);
+  NumericVector Sigma_p(T);
+  NumericVector mu_f(T);
+  NumericVector Sigma_f(T);
+  NumericVector mu_s(T);
+  NumericVector Sigma_s(T);
+  
+  // Forward recursion time 1
+  mu_p[0] = m0;
+  Sigma_p[0] = Sigma0;
+  mu_f[0] = m0 + (y[0] - m0) * (Sigma0 / (Sigma0 + Sigmaw));
+  Sigma_f[0] = Sigma0 - pow(Sigma0, 2) / (Sigma0 + Sigmaw);
+  
+  // Forward recursion time 2:T
+  for (int t = 1; t < T; t++) {
+    // Prediction
+    mu_p[t] = phi * mu_f[t - 1];
+    Sigma_p[t] = pow(phi, 2) * Sigma_f[t - 1] + Sigmaw;
+    
+    // Update
+    double deno = Sigmaw + Sigma_p[t];
+    mu_f[t] = (Sigmaw * mu_p[t]) / deno + (Sigma_p[t] * y[t]) / deno;
+    Sigma_f[t] = (Sigmaw * Sigma_p[t]) / deno;
+  }
+  
+  // Backward recursion
+  mu_s[T - 1] = mu_f[T - 1];
+  Sigma_s[T - 1] = Sigma_f[T - 1];
+  for (int t = T - 2; t >= 0; t--) {
+    double J = phi * Sigma_f[t] / Sigma_p[t + 1];
+    mu_s[t] = mu_f[t] + J * (mu_s[t + 1] - mu_p[t + 1]);
+    Sigma_s[t] = Sigma_f[t] + pow(J, 2) * (Sigma_s[t + 1] - Sigma_p[t + 1]);
+  }
+  
+  // Create and return the list
+  List result = List::create(
+    Named("mu.f") = mu_f,
+    Named("Sigma.f") = Sigma_f,
+    Named("mu.p") = mu_p,
+    Named("Sigma.p") = Sigma_p,
+    Named("mu.s") = mu_s,
+    Named("Sigma.s") = Sigma_s
+  );
+  
+  return result;
+}
+
+// Rcpp module to expose the function to R
+RCPP_MODULE(kalmanModule) {
+  function("kalmanRcpp", &kalmanRcpp);
+}
+
+')
+```
+
+In comparison, the function written in Rcpp version can effectively
+improve the computational speed.
+
+```{r warning=FALSE}
+microbenchmark(R = kalman(y, phi=1,
+                          Sigmav=0.02, Sigmaw=0.2,
+                          m0=0, Sigma0=1),
+               Rcpp = kalmanRcpp(y, phi=1,
+                                 Sigmav=0.02, Sigmaw=0.2,
+                                 m0=0, Sigma0=1)) %>%
+pander()
+```
