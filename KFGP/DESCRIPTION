@@ -1,0 +1,9 @@
+Package: KFGP
+Type: Package
+Title: State-space model representation of univariate Gaussian process regression
+Version: 0.1.0
+Author:Qi Chen, Sam Perren, Xinrui Shi
+Encoding: UTF-8
+LazyData: true
+Imports: Rcpp (>= 1.0.9)
+LinkingTo: Rcpp

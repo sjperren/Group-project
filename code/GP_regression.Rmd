@@ -10,6 +10,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 require(dplyr) #for pipe function
 require(ggplot2) # for plotting
+library(data.table)
 
 source("main_functions.R")
 ```
@@ -92,7 +93,21 @@ legend("bottomleft", legend = c("observation", "prediction mean",
 
 
 ```{r}
+read.file <- read.csv("AAPL.csv") %>% data.table()
+dd1 <- read.file %>% select("Open") %>% mutate(t=1:nrow(read.file))
+colnames(dd1)[1] <- "price"
 
+
+plot(dd1$t, dd1$price)
 ```
 
+```{r}
+read.file <- read.csv("female_birth.csv") %>% data.table()
+dd1 <- read.file %>% select("Births") %>% mutate(t=1:nrow(read.file))
+colnames(dd1)[1] <- "value"
+
+plot(dd1$t, dd1$value)
+
+acf(dd1$value)
+```
 

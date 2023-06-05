@@ -1,8 +1,8 @@
 ---
-title: "kalman_filter"
-author: "Qi"
+title: " State-space model representation of univariate Gaussian process regression"
+author: "Qi Chen, Sam Perren, Xinrui Shi"
 date: "2023-06-04"
-output: html_document
+output: pdf_document
 editor_options: 
   markdown: 
     wrap: 72
@@ -745,3 +745,14 @@ microbenchmark(R = kalman(y, phi=1,
                                  m0=0, Sigma0=1)) %>%
 pander()
 ```
+
+
+
+```{r}
+system("ls -1R kf.GP/")
+```
+
+
+
+
+
